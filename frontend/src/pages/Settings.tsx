@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardHeader, CardTitle, CardBody, Button, Input } from '../components/ui';
+import UserManagement from '../components/UserManagement';
 import { tenantService, uploadService } from '../services/api';
 
 export default function Settings() {
@@ -503,6 +504,9 @@ export default function Settings() {
                         </div>
                     </CardBody>
                 </Card>
+
+                {/* User Management */}
+                <UserManagement />
 
                 {/* Subscription */}
                 <Card>

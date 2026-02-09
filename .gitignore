@@ -30,6 +30,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+backend_error.log
 
 # Testing
 coverage/

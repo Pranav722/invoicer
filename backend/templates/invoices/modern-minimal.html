@@ -56,6 +56,24 @@
             }
         }
 
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 90px;
+            font-weight: 100;
+            color: rgba(0, 0, 0, 0.02);
+            pointer-events: none;
+            letter-spacing: 15px;
+        }
+
+            {
+                {
+                /if
+            }
+        }
+
         /* Header - Minimal with accent */
         .header {
             margin-bottom: 50px;
@@ -388,9 +406,33 @@
         </div>
         {{/if}}
 
+        <!-- Payment & Signature -->
+        <div
+            style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; padding-top: 30px; border-top: 1px solid #f1f5f9;">
+            <div style="flex: 1;">
+                <div class="notes-title">Payment Details</div>
+                <div class="notes-content">
+                    {{#if paymentInfo.bankName}}<strong>Bank:</strong> {{paymentInfo.bankName}}<br>{{/if}}
+                    {{#if paymentInfo.accountName}}<strong>Account Name:</strong> {{paymentInfo.accountName}}<br>{{/if}}
+                    {{#if paymentInfo.accountNumber}}<strong>Account No:</strong>
+                    {{paymentInfo.accountNumber}}<br>{{/if}}
+                    {{#if paymentInfo.swiftCode}}<strong>SWIFT/BIC:</strong> {{paymentInfo.swiftCode}}<br>{{/if}}
+                    {{#if paymentInfo.ifscCode}}<strong>IFSC:</strong> {{paymentInfo.ifscCode}}<br>{{/if}}
+                    {{#if paymentInfo.routingNumber}}<strong>Routing:</strong> {{paymentInfo.routingNumber}}<br>{{/if}}
+                    {{#unless paymentInfo.bankName}}No payment details provided{{/unless}}
+                </div>
+            </div>
+            <div style="flex: 1; text-align: right;">
+                {{#if signature}}
+                <img src="{{signature}}" alt="Signature" style="height: 60px; margin-bottom: 8px;"><br>
+                <div class="notes-title" style="margin-bottom: 0;">Authorized Signature</div>
+                {{/if}}
+            </div>
+        </div>
+
         <!-- Notes -->
         {{#if notes}}
-        <div class="notes">
+        <div class="notes" style="margin-top: 40px;">
             <div class="notes-title">Notes</div>
             <div class="notes-content">{{notes}}</div>
         </div>
@@ -404,9 +446,18 @@
         </div>
         {{/if}}
 
-        <!-- Footer -->
-        <div class="footer">
-            Thank you for your business
+        <!-- Footer Branding -->
+        <div class="footer" style="margin-top: auto; padding-top: 40px;">
+            <div
+                style="text-transform: uppercase; font-weight: 600; letter-spacing: 2px; margin-bottom: 8px; color: #64748b;">
+                {{#if footer.address}}{{footer.address}}{{/if}}
+                {{#if footer.contact}} &bull; {{footer.contact}}{{/if}}
+                {{#if footer.email}} &bull; {{footer.email}}{{/if}}
+            </div>
+            <div style="font-style: italic; opacity: 0.8;">
+                {{#if paymentInstructions}}{{paymentInstructions}}{{else}}Thank you for your business. Payment is due
+                within 30 days.{{/if}}
+            </div>
         </div>
     </div>
 </body>

@@ -51,6 +51,7 @@ function AppRoutes() {
         <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
         <Route path="invoices" element={<ErrorBoundary><Invoices /></ErrorBoundary>} />
         <Route path="invoices/create" element={<ErrorBoundary><CreateInvoice /></ErrorBoundary>} />
+        <Route path="invoices/:id" element={<ErrorBoundary><CreateInvoice /></ErrorBoundary>} />
         <Route path="vendors" element={<ErrorBoundary><Vendors /></ErrorBoundary>} />
         <Route path="services" element={<ErrorBoundary><Services /></ErrorBoundary>} />
         <Route path="users" element={<ErrorBoundary><Users /></ErrorBoundary>} />

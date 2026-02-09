@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import LayoutMinimalCentered from '../components/LayoutMinimalCentered';
 import { vendorService, serviceService, invoiceService, tenantService } from '../services/api';
 import AddVendorModal from '../components/AddVendorModal';
@@ -8,6 +8,15 @@ import type { InvoiceData } from '../components/InvoiceLayoutEngine';
 import DesignCustomizer from '../components/DesignCustomizer';
 import type { DesignConfig } from '../types/InvoiceDesign';
 import { designConfigs } from '../data/invoiceDesigns';
+
+interface PaymentInfo {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    swiftCode: string;
+    ifscCode: string;
+    routingNumber: string;
+}
 
 interface Vendor {
     _id: string;
@@ -24,10 +33,7 @@ interface Vendor {
     };
     taxId?: string;
     signatureUrl?: string; // Digital Signature
-    paymentDetails?: {
-        bankName?: string;
-        accountNumber?: string;
-    }
+    paymentDetails?: PaymentInfo; // Use the new PaymentInfo interface
 }
 
 interface Service {
@@ -42,6 +48,7 @@ interface Service {
 
 const CreateInvoice = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
     const [loading, setLoading] = useState(false);
     const [issuers, setIssuers] = useState<Vendor[]>([]);
     const [availableServices, setAvailableServices] = useState<Service[]>([]);
@@ -72,13 +79,22 @@ const CreateInvoice = () => {
     ]);
     const [notes, setNotes] = useState('');
 
-    // Footer Details
+    // Payment Details (Restored section after total)
+    const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
+        bankName: '',
+        accountName: '',
+        accountNumber: '',
+        swiftCode: '',
+        ifscCode: '',
+        routingNumber: ''
+    });
+
+    // Footer Branding Details (Moved to absolute bottom)
     const [footerDetails, setFooterDetails] = useState({
         contact: '',
         email: '',
         address: '',
-        terms: 'Payment due within 30 days.',
-        routingNumber: ''
+        terms: 'Payment due within 30 days.'
     });
 
     // Design State
@@ -90,7 +106,59 @@ const CreateInvoice = () => {
         fetchIssuers();
         fetchServices();
         fetchTenantSettings();
-    }, []);
+        if (id) fetchInvoice();
+    }, [id]);
+
+    const fetchInvoice = async () => {
+        setLoading(true);
+        try {
+            const response = await invoiceService.getById(id!);
+            const data = response.data.data;
+
+            // Map data to state
+            setSelectedIssuerId(data.vendorId || 'tenant');
+            setIssuer(data.vendorSnapshot);
+            setClientDetails({
+                name: data.clientSnapshot?.name || '',
+                company: data.clientSnapshot?.company || '',
+                email: data.clientSnapshot?.email || '',
+                address: data.clientSnapshot?.address || '',
+                taxId: data.clientSnapshot?.taxId || ''
+            });
+
+            setIssueDate(new Date(data.issueDate).toISOString().split('T')[0]);
+            setDueDate(new Date(data.dueDate).toISOString().split('T')[0]);
+            setCurrency(data.currency || 'USD');
+            setLineItems(data.items || []);
+            setNotes(data.internalNotes || '');
+            setPaymentInfo({
+                bankName: data.vendorSnapshot?.paymentDetails?.bankName || '',
+                accountName: data.vendorSnapshot?.paymentDetails?.accountName || '',
+                accountNumber: data.vendorSnapshot?.paymentDetails?.accountNumber || '',
+                swiftCode: data.vendorSnapshot?.paymentDetails?.swiftCode || '',
+                ifscCode: data.vendorSnapshot?.paymentDetails?.ifscCode || '',
+                routingNumber: data.vendorSnapshot?.paymentDetails?.routingNumber || ''
+            });
+            setFooterDetails(data.footer || {
+                contact: '',
+                email: '',
+                address: '',
+                terms: 'Payment due within 30 days.'
+            });
+
+            if (data.customizations) {
+                setDesignConfig(data.customizations);
+            }
+            if (data.layoutId) {
+                setSelectedDesignId(data.layoutId);
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch invoice', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchIssuers = async () => {
         try {
@@ -159,8 +227,17 @@ const CreateInvoice = () => {
                 contact: activeTenant?.branding?.phone || '',
                 email: activeTenant?.ownerEmail || '',
                 address: formatAddress(activeTenant?.branding?.companyAddress) || '',
-                terms: 'Payment due within 30 days.',
-                routingNumber: ''
+                terms: 'Payment due within 30 days.'
+            });
+
+            // Restore Payment Info from Tenant
+            setPaymentInfo({
+                bankName: activeTenant?.paymentDetails?.bankName || '',
+                accountName: activeTenant?.paymentDetails?.accountName || '',
+                accountNumber: activeTenant?.paymentDetails?.accountNumber || '',
+                swiftCode: activeTenant?.paymentDetails?.swiftCode || '',
+                ifscCode: activeTenant?.paymentDetails?.ifscCode || '',
+                routingNumber: activeTenant?.paymentDetails?.routingNumber || ''
             });
 
         } else {
@@ -175,8 +252,17 @@ const CreateInvoice = () => {
                     contact: selected.phone || selected.contactPerson || '',
                     email: selected.email || '',
                     address: formatAddress(selected.address) || '',
-                    // Terms and routingNumber might not be vendor-specific, keep previous or default
                 }));
+
+                // Auto-fill payment details from Vendor
+                setPaymentInfo({
+                    bankName: selected.paymentDetails?.bankName || '',
+                    accountName: selected.paymentDetails?.accountName || '',
+                    accountNumber: selected.paymentDetails?.accountNumber || '',
+                    swiftCode: selected.paymentDetails?.swiftCode || '',
+                    ifscCode: selected.paymentDetails?.ifscCode || '',
+                    routingNumber: selected.paymentDetails?.routingNumber || ''
+                });
             }
         }
     };
@@ -247,42 +333,56 @@ const CreateInvoice = () => {
                 dueDate,
                 currency,
                 notes,
-                // clientNotes is the actual CLIENT details (To)
-                clientNotes: JSON.stringify(clientDetails),
-                internalNotes: JSON.stringify(footerDetails),
+                paymentInfo: {
+                    bankName: paymentInfo.bankName,
+                    accountName: paymentInfo.accountName,
+                    accountNumber: paymentInfo.accountNumber,
+                    swiftCode: paymentInfo.swiftCode,
+                    ifscCode: paymentInfo.ifscCode,
+                    routingNumber: paymentInfo.routingNumber
+                },
+                footer: footerDetails,
+                clientSnapshot: clientDetails,
+                customizations: designConfig,
                 status: status === 'sent' ? 'sent' : 'draft',
                 templateId: selectedDesignId
             };
 
-            const response = await invoiceService.create(invoicePayload);
-            const newInvoice = response.data.data;
-            const newInvoiceId = newInvoice._id;
+            const response = id
+                ? await invoiceService.update(id, invoicePayload)
+                : await invoiceService.create(invoicePayload);
+
+            const savedInvoice = response.data.data;
+            const savedInvoiceId = savedInvoice._id;
 
             if (status === 'sent') {
-                await invoiceService.sendEmail(newInvoiceId, {
+                await invoiceService.sendEmail(savedInvoiceId, {
                     templateId: selectedDesignId
                 });
-                alert('Invoice saved and sent successfully!');
+                alert(id ? 'Invoice updated and sent successfully!' : 'Invoice saved and sent successfully!');
                 navigate('/invoices');
             } else if (status === 'download') {
-                const downloadRes = await invoiceService.downloadPDF(newInvoiceId);
+                const downloadRes = await invoiceService.downloadPDF(savedInvoiceId);
                 const url = window.URL.createObjectURL(new Blob([downloadRes.data]));
                 const link = document.createElement('a');
                 link.href = url;
-                link.setAttribute('download', `Invoice-${newInvoice.invoiceNumber}.pdf`);
+                link.setAttribute('download', `Invoice-${savedInvoice.invoiceNumber}.pdf`);
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
-                alert('Invoice saved and PDF download started!');
+                alert(id ? 'Invoice updated and PDF download started!' : 'Invoice saved and PDF download started!');
                 navigate('/invoices');
             } else {
-                alert('Invoice draft saved successfully!');
+                alert(id ? 'Invoice updated successfully!' : 'Invoice draft saved successfully!');
                 navigate('/invoices');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save invoice', error);
-            alert('Failed to save invoice. See console.');
-        } finally {
+            const message = error.response?.data?.message || error.message || 'Failed to save invoice';
+            const detail = error.response?.data?.error || '';
+            alert(`Error: ${message}\n${detail}`);
+        }
+        finally {
             setLoading(false);
         }
     };
@@ -319,6 +419,14 @@ const CreateInvoice = () => {
         total,
         currency,
         notes,
+        paymentInfo: {
+            bankName: paymentInfo.bankName,
+            accountName: paymentInfo.accountName,
+            accountNumber: paymentInfo.accountNumber,
+            swiftCode: paymentInfo.swiftCode,
+            ifscCode: paymentInfo.ifscCode,
+            routingNumber: paymentInfo.routingNumber
+        },
         footer: {
             contact: footerDetails.contact,
             email: footerDetails.email,
@@ -491,11 +599,56 @@ const CreateInvoice = () => {
                         </div>
                     </div>
 
+                    {/* 5. Payment Details (Restored after Total) */}
                     <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Footer Info (Company Branding)</h3>
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Payment Details</h3>
+                            <button
+                                onClick={() => {
+                                    if (issuer?.paymentDetails) {
+                                        setPaymentInfo({
+                                            bankName: issuer.paymentDetails.bankName || '',
+                                            accountName: issuer.paymentDetails.accountName || '',
+                                            accountNumber: issuer.paymentDetails.accountNumber || '',
+                                            swiftCode: issuer.paymentDetails.swiftCode || '',
+                                            ifscCode: issuer.paymentDetails.ifscCode || '',
+                                            routingNumber: issuer.paymentDetails.routingNumber || ''
+                                        });
+                                    }
+                                }}
+                                className="text-[10px] text-indigo-600 font-bold hover:underline"
+                            >
+                                Use Profile Defaults
+                            </button>
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Company Contact</label>
+                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Bank Name</label>
+                                <input
+                                    placeholder="e.g. Citibank"
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                    value={paymentInfo.bankName}
+                                    onChange={e => setPaymentInfo({ ...paymentInfo, bankName: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Account Number</label>
+                                <input
+                                    placeholder="XXXX-XXXX-XXXX"
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                    value={paymentInfo.accountNumber}
+                                    onChange={e => setPaymentInfo({ ...paymentInfo, accountNumber: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 6. Footer Info (Absolute Bottom Branding) */}
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Footer Branding</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Phone</label>
                                 <input
                                     placeholder="Contact Phone"
                                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
@@ -504,7 +657,7 @@ const CreateInvoice = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Company Email</label>
+                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Email</label>
                                 <input
                                     placeholder="email@company.com"
                                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
@@ -513,7 +666,7 @@ const CreateInvoice = () => {
                                 />
                             </div>
                             <div className="col-span-2">
-                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Company Address</label>
+                                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Address</label>
                                 <input
                                     placeholder="123 Business St, Suite 100"
                                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
@@ -533,6 +686,15 @@ const CreateInvoice = () => {
                         </div>
                     </div>
 
+                    {/* 7. Design Customization (Moved to Left Column) */}
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div className="flex items-center gap-2 mb-4">
+                            <span className="text-xl">🎨</span>
+                            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Design Customizer</h3>
+                        </div>
+                        <DesignCustomizer settings={designConfig} onChange={setDesignConfig} />
+                    </div>
+
                     {/* Action Buttons */}
                     <div className="flex gap-3 pt-2">
                         <button
@@ -540,14 +702,14 @@ const CreateInvoice = () => {
                             disabled={loading}
                             className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
                         >
-                            {loading ? 'Saving...' : 'Save Draft'}
+                            {loading ? 'Saving...' : id ? 'Update Draft' : 'Save Draft'}
                         </button>
                         <button
                             onClick={() => handleSave('sent')}
                             disabled={loading}
                             className="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-lg shadow-indigo-200 transition-colors"
                         >
-                            {loading ? 'Sending...' : 'Save & Send'}
+                            {loading ? 'Sending...' : id ? 'Update & Send' : 'Save & Send'}
                         </button>
                     </div>
 
@@ -558,34 +720,44 @@ const CreateInvoice = () => {
 
                     {/* Toolbar */}
                     <div className="bg-white border-b border-slate-200 p-3 flex justify-between items-center z-10">
-                        <div className="flex gap-2 items-center">
-                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Template:</div>
-                            <select
-                                className="text-sm border-none bg-slate-100 rounded px-2 py-1 font-medium text-slate-700 cursor-pointer hover:bg-slate-200 transition-colors outline-none"
-                                value={selectedDesignId}
-                                onChange={(e) => setSelectedDesignId(e.target.value)}
-                            >
-                                <option value="1">Executive</option>
-                                <option value="2">Sidebar Console</option>
-                                <option value="3">Split Vertical</option>
-                                <option value="4">Thermal Receipt</option>
-                                <option value="5">Swiss Grid</option>
-                                <option value="6">Bottom Heavy</option>
-                                <option value="7">Horizontal Strip</option>
-                                <option value="8">Floating Cards</option>
-                                <option value="9">Tech Terminal</option>
-                                <option value="10">Magazine</option>
-                                <option value="11">Monolith</option>
-                                <option value="12">Classical</option>
-                                <option value="13">Deep Blue</option>
-                                <option value="14">Neon Night</option>
-                                <option value="15">Minimalist Lines</option>
-                                <option value="16">Bold Brutalism</option>
-                                <option value="17">Nature Fresh</option>
-                                <option value="18">Abstract Shapes</option>
-                                <option value="19">Coder Dark</option>
-                                <option value="20">Blueprint</option>
-                            </select>
+                        <div className="flex gap-4 items-center">
+                            <div className="flex gap-2 items-center">
+                                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Template:</div>
+                                <select
+                                    className="text-sm border-none bg-slate-100 rounded px-2 py-1 font-medium text-slate-700 cursor-pointer hover:bg-slate-200 transition-colors outline-none"
+                                    value={selectedDesignId}
+                                    onChange={(e) => {
+                                        const id = e.target.value;
+                                        setSelectedDesignId(id);
+                                        // Update config to match preset if available
+                                        const index = parseInt(id) - 1;
+                                        if (designConfigs[index]) {
+                                            setDesignConfig(designConfigs[index]);
+                                        }
+                                    }}
+                                >
+                                    <option value="1">Executive</option>
+                                    <option value="2">Sidebar Console</option>
+                                    <option value="3">Split Vertical</option>
+                                    <option value="4">Thermal Receipt</option>
+                                    <option value="5">Swiss Grid</option>
+                                    <option value="6">Bottom Heavy</option>
+                                    <option value="7">Horizontal Strip</option>
+                                    <option value="8">Floating Cards</option>
+                                    <option value="9">Tech Terminal</option>
+                                    <option value="10">Magazine</option>
+                                    <option value="11">Monolith</option>
+                                    <option value="12">Classical</option>
+                                    <option value="13">Deep Blue</option>
+                                    <option value="14">Neon Night</option>
+                                    <option value="15">Minimalist Lines</option>
+                                    <option value="16">Bold Brutalism</option>
+                                    <option value="17">Nature Fresh</option>
+                                    <option value="18">Abstract Shapes</option>
+                                    <option value="19">Coder Dark</option>
+                                    <option value="20">Blueprint</option>
+                                </select>
+                            </div>
                         </div>
                         <button
                             onClick={handleDownloadPDF}
@@ -599,13 +771,15 @@ const CreateInvoice = () => {
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto relative bg-slate-50/50">
-                        <div className="flex justify-center p-8 min-h-full">
-                            <div className="w-[210mm] origin-top scale-[0.6] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.6] xl:scale-[0.75] 2xl:scale-[0.9] transition-transform duration-300 shadow-2xl bg-white">
-                                <InvoiceLayoutEngine designId={selectedDesignId} data={invoiceData} />
+                    <div className="flex-1 flex overflow-hidden">
+                        {/* Preview Area (Full Width, Larger Scale) */}
+                        <div className="flex-1 overflow-y-auto relative bg-slate-50/50 flex justify-center p-4 md:p-12">
+                            <div className="w-[210mm] origin-top scale-[0.55] sm:scale-[0.65] md:scale-[0.8] lg:scale-[0.75] xl:scale-[0.9] 2xl:scale-[1.0] transition-transform duration-300 shadow-2xl bg-white h-fit">
+                                <InvoiceLayoutEngine designId={selectedDesignId} data={invoiceData} config={designConfig} />
                             </div>
                         </div>
                     </div>
+
                 </div>
 
             </div>

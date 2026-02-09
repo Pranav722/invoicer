@@ -111,8 +111,29 @@ export class PuppeteerPDFService {
             return templateCache.get(cacheKey)!;
         }
 
+        // Map legacy/frontend IDs to filenames
+        const legacyMap: Record<string, string> = {
+            '1': 'modern-minimal',
+            '2': 'classic-professional',
+            '3': 'bold-statement',
+            '4': 'simple',
+            '5': 'sidebar-layout',
+            '6': 'compact-executive',
+            '7': 'creative-agency',
+            '8': 'split-screen',
+            '9': 'top-heavy',
+            '10': 'grid-mastery',
+            '11': 'minimalist-luxury',
+            '12': 'data-dense',
+            '13': 'floating-boxes',
+            '14': 'timeline-style',
+            '15': 'professional-certificate'
+        };
+
+        const filename = legacyMap[templateId] || templateId;
+
         // Load template file
-        const templatePath = path.join(this.templatesPath, `${templateId}.html`);
+        const templatePath = path.join(this.templatesPath, `${filename}.html`);
         const templateHTML = await fs.readFile(templatePath, 'utf-8');
 
         // Compile and cache

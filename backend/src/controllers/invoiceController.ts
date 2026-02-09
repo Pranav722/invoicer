@@ -8,6 +8,16 @@ import { aiService } from '../services/aiService';
 import { puppeteerPDFService } from '../services/pdf/PuppeteerPDFService';
 import { convertAmountToWords } from '../utils/amountToWords';
 import mongoose from 'mongoose';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const logError = (error: any, context: string) => {
+    const logPath = path.join(__dirname, '../../backend_error.log');
+    const timestamp = new Date().toISOString();
+    const message = `[${timestamp}] [${context}] ${error.stack || error}\n`;
+    fs.appendFileSync(logPath, message);
+    console.error(message);
+};
 
 export class InvoiceController {
     /**
@@ -23,7 +33,10 @@ export class InvoiceController {
                 currency,
                 discountAmount,
                 discountType,
-                notes
+                notes,
+                paymentInfo,
+                footer,
+                clientSnapshot
             } = req.body;
 
             const tenantId = req.tenantId!;
@@ -63,7 +76,7 @@ export class InvoiceController {
             const total = subtotal + totalTax - finalDiscountAmount;
 
             // Generate invoice number
-            const invoiceNumber = await this.generateInvoiceNumber(tenantId);
+            const invoiceNumber = await InvoiceController.generateInvoiceNumber(tenantId);
 
             // Create vendor snapshot (The ISSUER of the invoice)
             const vendorSnapshot = vendor ? {
@@ -74,8 +87,16 @@ export class InvoiceController {
                 address: vendor.address,
                 taxId: vendor.taxId,
                 signatureUrl: vendor.signatureUrl,
-                paymentDetails: vendor.paymentDetails
-            } : (req.body.vendorSnapshot || {});
+                paymentDetails: paymentInfo || vendor.paymentDetails,
+                footer: footer // Store branding info here
+            } : {
+                ...(req.body.vendorSnapshot || {}),
+                paymentDetails: paymentInfo,
+                footer: footer
+            };
+
+            // Customizations
+            const customizations = req.body.customizations || {};
 
             // Create invoice
             const invoice = new Invoice({
@@ -99,7 +120,9 @@ export class InvoiceController {
                 currency: currency || 'USD',
                 layoutId: req.body.templateId || 'modern-minimal',
                 internalNotes: req.body.internalNotes || notes,
-                clientNotes: req.body.clientNotes
+                clientNotes: req.body.clientNotes,
+                clientSnapshot: clientSnapshot || req.body.clientDetails,
+                customizations
             });
 
             await invoice.save();
@@ -302,22 +325,20 @@ export class InvoiceController {
                 issueDate: invoice.issueDate,
                 dueDate: invoice.dueDate,
 
-                // Client details - prioritize clientNotes if available (manual entry in UI)
-                clientName: '',
-                clientAddress: '',
-                clientCity: '',
-                clientState: '',
-                clientZip: '',
-                clientEmail: '',
-                clientPhone: '',
+                // Client details - prioritize clientSnapshot if available
+                clientName: invoice.clientSnapshot?.name || invoice.clientSnapshot?.company || '',
+                clientAddress: invoice.clientSnapshot?.address || '',
+                clientEmail: invoice.clientSnapshot?.email || '',
+                clientTaxId: invoice.clientSnapshot?.taxId || '',
+
                 ...(() => {
                     try {
                         return invoice.clientNotes ? JSON.parse(invoice.clientNotes) : {};
                     } catch (e) { return {}; }
                 })(),
 
-                // If clientNotes didn't have it, fallback to vendor (though in this app vendor is often issuer)
-                ...(vendor ? {
+                // Fallback to vendor
+                ...(vendor && !invoice.clientSnapshot ? {
                     clientName: vendor.companyName,
                     clientAddress: vendor.address?.street,
                     clientCity: vendor.address?.city,
@@ -328,13 +349,28 @@ export class InvoiceController {
                 } : {}),
 
                 // Company (Tenant) details - can be overridden by vendorSnapshot (Issuer Profile)
-                companyName: invoice.vendorSnapshot?.companyName || tenant.companyName,
-                companyAddress: invoice.vendorSnapshot?.address || tenant.branding?.companyAddress,
-                companyEmail: invoice.vendorSnapshot?.email || tenant.ownerEmail,
-                companyPhone: invoice.vendorSnapshot?.phone || tenant.branding?.phone,
+                companyName: (invoice.vendorSnapshot as any)?.companyName || tenant.companyName,
+                companyAddress: (invoice.vendorSnapshot as any)?.address || tenant.branding?.companyAddress,
+                companyEmail: (invoice.vendorSnapshot as any)?.email || tenant.ownerEmail,
+                companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant.branding?.phone,
                 companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant.branding?.website,
-                signature: invoice.vendorSnapshot?.signatureUrl || tenant.branding?.signatureUrl,
-                paymentDetails: invoice.vendorSnapshot?.paymentDetails || tenant.paymentDetails,
+                // Signature & Payment Info (Restored after total)
+                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant.branding?.signatureUrl,
+                paymentInfo: {
+                    bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant.paymentDetails?.bankName,
+                    accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant.paymentDetails?.accountName,
+                    accountNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.accountNumber || tenant.paymentDetails?.accountNumber,
+                    swiftCode: (invoice.vendorSnapshot as any)?.paymentDetails?.swiftCode || tenant.paymentDetails?.swiftCode,
+                    ifscCode: (invoice.vendorSnapshot as any)?.paymentDetails?.ifscCode || tenant.paymentDetails?.ifscCode,
+                    routingNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.routingNumber || tenant.paymentDetails?.routingNumber,
+                },
+
+                // Footer Branding (Absolute Bottom)
+                footer: (invoice.vendorSnapshot as any)?.footer || {
+                    contact: tenant.branding?.phone,
+                    email: tenant.ownerEmail,
+                    address: tenant.branding?.companyAddress
+                },
 
                 // Line items
                 lineItems: invoice.items,
@@ -388,7 +424,9 @@ export class InvoiceController {
                 },
             });
         } catch (error) {
-            next(error);
+            logError(error, 'generatePDF');
+            console.error('Generate PDF Error:', error);
+            res.status(500).json({ message: 'Failed to generate PDF', error: error instanceof Error ? error.message : 'Unknown error' });
         }
     }
 
@@ -418,22 +456,20 @@ export class InvoiceController {
                 issueDate: invoice.issueDate,
                 dueDate: invoice.dueDate,
 
-                // Client details - prioritize clientNotes if available (manual entry in UI)
-                clientName: '',
-                clientAddress: '',
-                clientCity: '',
-                clientState: '',
-                clientZip: '',
-                clientEmail: '',
-                clientPhone: '',
+                // Client details - prioritize clientSnapshot if available
+                clientName: invoice.clientSnapshot?.name || invoice.clientSnapshot?.company || '',
+                clientAddress: invoice.clientSnapshot?.address || '',
+                clientEmail: invoice.clientSnapshot?.email || '',
+                clientTaxId: invoice.clientSnapshot?.taxId || '',
+
                 ...(() => {
                     try {
                         return invoice.clientNotes ? JSON.parse(invoice.clientNotes) : {};
                     } catch (e) { return {}; }
                 })(),
 
-                // If clientNotes didn't have it, fallback to vendor (though in this app vendor is often issuer)
-                ...(vendor ? {
+                // Fallback to vendor
+                ...(vendor && !invoice.clientSnapshot ? {
                     clientName: vendor.companyName,
                     clientAddress: vendor.address?.street,
                     clientCity: vendor.address?.city,
@@ -444,13 +480,28 @@ export class InvoiceController {
                 } : {}),
 
                 // Company (Tenant) details - can be overridden by vendorSnapshot (Issuer Profile)
-                companyName: invoice.vendorSnapshot?.companyName || tenant?.companyName,
-                companyAddress: invoice.vendorSnapshot?.address || tenant?.branding?.companyAddress,
-                companyEmail: invoice.vendorSnapshot?.email || tenant?.ownerEmail,
-                companyPhone: invoice.vendorSnapshot?.phone || tenant?.branding?.phone,
-                companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant?.branding?.website,
-                signature: invoice.vendorSnapshot?.signatureUrl || tenant?.branding?.signatureUrl,
-                paymentDetails: invoice.vendorSnapshot?.paymentDetails || tenant?.paymentDetails,
+                companyName: (invoice.vendorSnapshot as any)?.companyName || tenant.companyName,
+                companyAddress: (invoice.vendorSnapshot as any)?.address || tenant.branding?.companyAddress,
+                companyEmail: (invoice.vendorSnapshot as any)?.email || tenant.ownerEmail,
+                companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant.branding?.phone,
+                companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant.branding?.website,
+                // Signature & Payment Info (Restored after total)
+                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant.branding?.signatureUrl,
+                paymentInfo: {
+                    bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant.paymentDetails?.bankName,
+                    accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant.paymentDetails?.accountName,
+                    accountNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.accountNumber || tenant.paymentDetails?.accountNumber,
+                    swiftCode: (invoice.vendorSnapshot as any)?.paymentDetails?.swiftCode || tenant.paymentDetails?.swiftCode,
+                    ifscCode: (invoice.vendorSnapshot as any)?.paymentDetails?.ifscCode || tenant.paymentDetails?.ifscCode,
+                    routingNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.routingNumber || tenant.paymentDetails?.routingNumber,
+                },
+
+                // Footer Branding (Absolute Bottom)
+                footer: (invoice.vendorSnapshot as any)?.footer || {
+                    contact: tenant.branding?.phone,
+                    email: tenant.ownerEmail,
+                    address: tenant.branding?.companyAddress
+                },
 
                 lineItems: invoice.items,
                 subtotal: invoice.subtotal,
@@ -471,21 +522,17 @@ export class InvoiceController {
                 watermark,
             });
 
-            // Set response headers
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
-            res.setHeader('Content-Length', pdfBuffer.length);
-
-            // Send PDF
-            res.send(pdfBuffer);
+            // Send content
+            res.status(200).send(pdfBuffer);
         } catch (error) {
-            next(error);
+            logError(error, 'downloadPDF');
+            console.error('PDF Generation Error:', error);
+            res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+            res.header('Access-Control-Allow-Credentials', 'true');
+            res.status(500).json({ message: 'Failed to generate PDF', error: error instanceof Error ? error.message : 'Unknown error' });
         }
     }
 
-    /**
-     * Update invoice status
-     */
     static async updateStatus(req: Request, res: Response, next: NextFunction) {
         try {
             const { id } = req.params;
@@ -639,24 +686,41 @@ export class InvoiceController {
 
             const vendor = invoice.vendorId as any;
 
-            // 2. Refresh PDF data (similar to generatePDF)
+            // Prepare invoice data
             const invoiceData = {
                 invoiceNumber: invoice.invoiceNumber,
                 issueDate: invoice.issueDate,
                 dueDate: invoice.dueDate,
-                companyName: tenant.companyName,
-                companyAddress: tenant.branding?.companyAddress,
-                companyEmail: tenant.ownerEmail,
-                companyPhone: tenant.branding?.phone,
-                companyWebsite: tenant.branding?.website,
-                // Client Info
-                clientName: vendor?.companyName || invoice.vendorSnapshot?.companyName,
-                clientAddress: vendor?.address?.street || (invoice.vendorSnapshot?.address as any)?.street,
-                clientCity: vendor?.address?.city || (invoice.vendorSnapshot?.address as any)?.city,
-                clientState: vendor?.address?.state || (invoice.vendorSnapshot?.address as any)?.state,
-                clientZip: vendor?.address?.zip || (invoice.vendorSnapshot?.address as any)?.zip,
-                clientEmail: vendor?.email || invoice.vendorSnapshot?.email,
-                clientPhone: vendor?.phone || (invoice.vendorSnapshot as any)?.phone,
+                companyName: (invoice.vendorSnapshot as any)?.companyName || tenant.companyName,
+                companyAddress: (invoice.vendorSnapshot as any)?.address || tenant.branding?.companyAddress,
+                companyEmail: (invoice.vendorSnapshot as any)?.email || tenant.ownerEmail,
+                companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant.branding?.phone,
+                companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant.branding?.website,
+
+                // Client details - prioritize clientSnapshot if available
+                clientName: invoice.clientSnapshot?.name || invoice.clientSnapshot?.company || '',
+                clientAddress: invoice.clientSnapshot?.address || '',
+                clientEmail: invoice.clientSnapshot?.email || '',
+                clientTaxId: invoice.clientSnapshot?.taxId || '',
+
+                // Signature & Payment Info (Restored after total)
+                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant.branding?.signatureUrl,
+                paymentInfo: {
+                    bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant.paymentDetails?.bankName,
+                    accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant.paymentDetails?.accountName,
+                    accountNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.accountNumber || tenant.paymentDetails?.accountNumber,
+                    swiftCode: (invoice.vendorSnapshot as any)?.paymentDetails?.swiftCode || tenant.paymentDetails?.swiftCode,
+                    ifscCode: (invoice.vendorSnapshot as any)?.paymentDetails?.ifscCode || tenant.paymentDetails?.ifscCode,
+                    routingNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.routingNumber || tenant.paymentDetails?.routingNumber,
+                },
+
+                // Footer Branding (Absolute Bottom)
+                footer: (invoice.vendorSnapshot as any)?.footer || {
+                    contact: tenant.branding?.phone,
+                    email: tenant.ownerEmail,
+                    address: tenant.branding?.companyAddress
+                },
+
                 lineItems: invoice.items,
                 subtotal: invoice.subtotal,
                 taxRate: 0,
@@ -676,15 +740,22 @@ export class InvoiceController {
                 watermark,
             });
 
-            // 4. Send Email using Nodemailer (assuming transporter is available globally or imported)
-            // Ideally move this to a separate emailService, but implementing here for speed as requested.
+            // 4. Send Email
             const nodemailer = require('nodemailer');
 
-            // NOTE: In production, configure these via env vars
+            if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+                console.warn('SMTP credentials not found. Skipping email send.');
+                return res.status(200).json({
+                    success: true,
+                    message: 'Invoice saved. Email not sent (SMTP not configured).',
+                    emailSent: false
+                });
+            }
+
             const transporter = nodemailer.createTransport({
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
                 port: Number(process.env.SMTP_PORT) || 587,
-                secure: false, // true for 465, false for other ports
+                secure: false,
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS,
@@ -692,10 +763,10 @@ export class InvoiceController {
             });
 
             const mailOptions = {
-                from: `"${tenant.companyName}" <${tenant.ownerEmail}>`, // sender address
-                to: invoiceData.clientEmail, // list of receivers
-                subject: `Invoice ${invoice.invoiceNumber} from ${tenant.companyName}`, // Subject line
-                text: `Dear ${invoiceData.clientName},\n\nPlease find attached invoice ${invoice.invoiceNumber} for ${invoice.currency} ${invoice.total}. \n\nDue Date: ${new Date(invoice.dueDate).toLocaleDateString()}\n\nThank you for your business.\n\nBest regards,\n${tenant.companyName}`, // plain text body
+                from: `"${tenant.companyName}" <${tenant.ownerEmail}>`,
+                to: invoiceData.clientEmail,
+                subject: `Invoice ${invoice.invoiceNumber} from ${tenant.companyName}`,
+                text: `Dear ${invoiceData.clientName},\n\nPlease find attached invoice ${invoice.invoiceNumber} for ${invoice.currency} ${invoice.total}. \n\nDue Date: ${new Date(invoice.dueDate).toLocaleDateString()}\n\nThank you for your business.\n\nBest regards,\n${tenant.companyName}`,
                 html: `
                     <div style="font-family: sans-serif; line-height: 1.6; color: #333;">
                         <h2>Invoice ${invoice.invoiceNumber}</h2>
@@ -716,8 +787,17 @@ export class InvoiceController {
                 ]
             };
 
-            // Send mail with defined transport object
-            await transporter.sendMail(mailOptions);
+            try {
+                await transporter.sendMail(mailOptions);
+            } catch (emailError) {
+                console.error('Failed to send email:', emailError);
+                // Return success for the invoice action, but warn about email
+                return res.status(200).json({
+                    success: true,
+                    message: 'Invoice saved but email failed to send.',
+                    emailSent: false
+                });
+            }
 
             // 5. Update Invoice Status
             await Invoice.findByIdAndUpdate(id, {
@@ -736,7 +816,13 @@ export class InvoiceController {
             });
 
         } catch (error) {
-            next(error);
+            logError(error, 'sendEmail');
+            console.error('Email Sending Error:', error);
+            res.status(500).json({
+                message: 'Failed to send invoice email',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined
+            });
         }
     }
 

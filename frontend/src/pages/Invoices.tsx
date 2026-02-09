@@ -196,16 +196,71 @@ export default function Invoices() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Link to={`/invoices/${invoice._id}`}>
-                                                    <button className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
-                                                        View
-                                                    </button>
-                                                </Link>
-                                                <button className="px-3 py-1 text-sm bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
-                                                    PDF
+                                            <Link to={`/invoices/${invoice._id}`}>
+                                                <button className="px-3 py-1 text-sm bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-medium">
+                                                    Edit
                                                 </button>
-                                            </div>
+                                            </Link>
+
+                                            {/* PDF Download */}
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await invoiceService.downloadPDF(invoice._id);
+                                                        const url = window.URL.createObjectURL(new Blob([res.data]));
+                                                        const link = document.createElement('a');
+                                                        link.href = url;
+                                                        link.setAttribute('download', `Invoice-${invoice.invoiceNumber}.pdf`);
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        link.remove();
+                                                    } catch (err) {
+                                                        alert('Failed to download PDF');
+                                                    }
+                                                }}
+                                                className="px-3 py-1 text-sm bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                                                title="Download PDF"
+                                            >
+                                                📄
+                                            </button>
+
+                                            {/* Send Reminder */}
+                                            {['sent', 'viewed', 'overdue'].includes(invoice.status) && (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!confirm('Send payment reminder to client?')) return;
+                                                        try {
+                                                            await invoiceService.sendEmail(invoice._id, { templateId: 'reminder' });
+                                                            alert('Reminder sent successfully!');
+                                                        } catch (err) {
+                                                            alert('Failed to send reminder');
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1 text-sm bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors"
+                                                    title="Send Reminder"
+                                                >
+                                                    🔔
+                                                </button>
+                                            )}
+
+                                            {/* Mark as Paid */}
+                                            {invoice.status !== 'paid' && invoice.status !== 'canceled' && (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!confirm('Mark this invoice as Paid?')) return;
+                                                        try {
+                                                            await invoiceService.updateStatus(invoice._id, 'paid');
+                                                            loadInvoices(); // Refresh list
+                                                        } catch (err) {
+                                                            alert('Failed to update status');
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1 text-sm bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors font-medium"
+                                                    title="Mark as Paid"
+                                                >
+                                                    ✓ Paid
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

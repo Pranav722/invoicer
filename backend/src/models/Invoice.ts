@@ -19,6 +19,14 @@ export interface IInvoice extends Document {
         taxId?: string;
         signatureUrl?: string;
         paymentDetails?: any;
+        footer?: any;
+    };
+    clientSnapshot?: {
+        name?: string;
+        company?: string;
+        email?: string;
+        address?: string;
+        taxId?: string;
     };
 
     createdBy: mongoose.Types.ObjectId;
@@ -107,6 +115,7 @@ const InvoiceSchema: Schema = new Schema(
 
         vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
         vendorSnapshot: Schema.Types.Mixed,
+        clientSnapshot: Schema.Types.Mixed,
 
         createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
@@ -144,13 +153,7 @@ const InvoiceSchema: Schema = new Schema(
 
         layoutId: { type: String, required: true },
         customTemplate: { type: Schema.Types.ObjectId, ref: 'InvoiceTemplate' },
-        customizations: {
-            headerColor: String,
-            fontFamily: String,
-            showLogo: Boolean,
-            showSignature: Boolean,
-            signatureImage: String
-        },
+        customizations: { type: Schema.Types.Mixed, default: {} },
 
         pdfUrl: String,
         pdfGeneratedAt: Date,
