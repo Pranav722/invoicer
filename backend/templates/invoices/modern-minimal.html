@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice {{invoiceNumber}}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #0f172a;
+            background: white;
+            line-height: 1.5;
+        }
+
+        .invoice-container {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 25mm;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+        }
+
+        /* Watermark */
+            {
+                {
+                #if watermark
+            }
+        }
+
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 90px;
+            font-weight: 100;
+            color: rgba(0, 0, 0, 0.02);
+            pointer-events: none;
+            letter-spacing: 15px;
+        }
+
+            {
+                {
+                /if
+            }
+        }
+
+        /* Header - Minimal with accent */
+        .header {
+            margin-bottom: 50px;
+        }
+
+        .invoice-title {
+            font-size: 14px;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .invoice-number {
+            font-size: 32px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 30px;
+        }
+
+        .invoice-dates {
+            display: flex;
+            gap: 40px;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .date-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .date-label {
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 11px;
+        }
+
+        .date-value {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 14px;
+        }
+
+        /* Details - Spacious */
+        .details {
+            display: flex;
+            justify-content: space-between;
+            gap: 60px;
+            margin-bottom: 50px;
+            padding: 30px 0;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .details-section {
+            flex: 1;
+        }
+
+        .details-label {
+            font-size: 11px;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .details-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 10px;
+        }
+
+        .details-info {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.8;
+        }
+
+        /* Line Items - Clean table */
+        .line-items {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 40px;
+        }
+
+        .line-items thead th {
+            padding: 16px 12px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .line-items thead th:last-child,
+        .line-items tbody td:last-child {
+            text-align: right;
+        }
+
+        .line-items thead th:nth-child(2),
+        .line-items tbody td:nth-child(2),
+        .line-items thead th:nth-child(3),
+        .line-items tbody td:nth-child(3) {
+            text-align: center;
+        }
+
+        .line-items tbody td {
+            padding: 18px 12px;
+            font-size: 14px;
+            color: #0f172a;
+            border-bottom: 1px solid #f8fafc;
+        }
+
+        .line-items tbody tr:last-child td {
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .description {
+            font-weight: 400;
+        }
+
+        /* Totals - Right-aligned modern */
+        .totals-wrapper {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 50px;
+        }
+
+        .totals {
+            width: 350px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            font-size: 14px;
+            border-bottom: 1px solid #f8fafc;
+        }
+
+        .totals-row.tax {
+            color: #64748b;
+        }
+
+        .totals-row.total {
+            border-top: 1px solid #e2e8f0;
+            border-bottom: none;
+            padding: 20px 0 0 0;
+            margin-top: 10px;
+            font-size: 24px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .totals-label {
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .totals-row.total .totals-label {
+            font-weight: 400;
+        }
+
+        /* Amount in Words - Minimal */
+        .amount-words {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8fafc;
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 300;
+        }
+
+        .amount-words strong {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        /* Notes - Minimal styling */
+        .notes {
+            margin-bottom: 40px;
+        }
+
+        .notes-title {
+            font-size: 11px;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .notes-content {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.8;
+        }
+
+        /* Footer - Ultra minimal */
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #f1f5f9;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 300;
+            color: #94a3b8;
+            letter-spacing: 0.5px;
+        }
+
+        /* Print */
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    {{#if watermark}}
+    <div class="watermark">{{watermark}}</div>
+    {{/if}}
+
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="invoice-title">Invoice</div>
+            <div class="invoice-number">{{invoiceNumber}}</div>
+            <div class="invoice-dates">
+                <div class="date-item">
+                    <span class="date-label">Issue Date</span>
+                    <span class="date-value">{{formatDate issueDate}}</span>
+                </div>
+                <div class="date-item">
+                    <span class="date-label">Due Date</span>
+                    <span class="date-value">{{formatDate dueDate}}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="details">
+            <div class="details-section">
+                <div class="details-label">From</div>
+                <div class="details-name">{{companyName}}</div>
+                <div class="details-info">
+                    {{#if companyAddress}}{{companyAddress}}<br>{{/if}}
+                    {{#if companyCity}}{{companyCity}}, {{companyState}} {{companyZip}}<br>{{/if}}
+                    {{#if companyEmail}}{{companyEmail}}<br>{{/if}}
+                    {{#if companyPhone}}{{companyPhone}}{{/if}}
+                </div>
+            </div>
+
+            <div class="details-section">
+                <div class="details-label">To</div>
+                <div class="details-name">{{clientName}}</div>
+                <div class="details-info">
+                    {{#if clientAddress}}{{clientAddress}}<br>{{/if}}
+                    {{#if clientCity}}{{clientCity}}, {{clientState}} {{clientZip}}<br>{{/if}}
+                    {{#if clientEmail}}{{clientEmail}}<br>{{/if}}
+                    {{#if clientPhone}}{{clientPhone}}{{/if}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Items -->
+        <table class="line-items">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each lineItems}}
+                <tr>
+                    <td class="description">{{this.description}}</td>
+                    <td>{{this.quantity}}</td>
+                    <td>{{formatCurrency this.rate ../currency}}</td>
+                    <td>{{formatCurrency this.amount ../currency}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <!-- Totals -->
+        <div class="totals-wrapper">
+            <div class="totals">
+                <div class="totals-row">
+                    <span class="totals-label">Subtotal</span>
+                    <span>{{formatCurrency subtotal currency}}</span>
+                </div>
+                {{#if taxAmount}}
+                <div class="totals-row tax">
+                    <span class="totals-label">Tax ({{taxRate}}%)</span>
+                    <span>{{formatCurrency taxAmount currency}}</span>
+                </div>
+                {{/if}}
+                {{#if discountAmount}}
+                <div class="totals-row tax">
+                    <span class="totals-label">Discount</span>
+                    <span>-{{formatCurrency discountAmount currency}}</span>
+                </div>
+                {{/if}}
+                <div class="totals-row total">
+                    <span class="totals-label">Total</span>
+                    <span>{{formatCurrency totalAmount currency}}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amount in Words -->
+        {{#if amountInWords}}
+        <div class="amount-words">
+            <strong>Total Amount:</strong> {{amountInWords}}
+        </div>
+        {{/if}}
+
+        <!-- Notes -->
+        {{#if notes}}
+        <div class="notes">
+            <div class="notes-title">Notes</div>
+            <div class="notes-content">{{notes}}</div>
+        </div>
+        {{/if}}
+
+        <!-- Payment Instructions -->
+        {{#if paymentInstructions}}
+        <div class="notes">
+            <div class="notes-title">Payment Instructions</div>
+            <div class="notes-content">{{paymentInstructions}}</div>
+        </div>
+        {{/if}}
+
+        <!-- Footer -->
+        <div class="footer">
+            Thank you for your business
+        </div>
+    </div>
+</body>
+
+</html>

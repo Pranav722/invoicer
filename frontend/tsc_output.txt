@@ -1,0 +1,3 @@
+src/components/ErrorBoundary.tsx(1,28): error TS1484: 'ErrorInfo' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/ErrorBoundary.tsx(1,39): error TS1484: 'ReactNode' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/InvoiceLayoutEngine.tsx(360,71): error TS2693: 'DesignConfig' only refers to a type, but is being used as a value here.

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice {{invoiceNumber}}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #1a1a1a;
+            background: white;
+            line-height: 1.6;
+        }
+        
+        .invoice-container {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+        }
+        
+        /* Watermark */
+        {{#if watermark}}
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            font-weight: 700;
+            color: rgba(0, 0, 0, 0.05);
+            pointer-events: none;
+            z-index: 1;
+            letter-spacing: 10px;
+        }
+        {{/if}}
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2563eb;
+        }
+        
+        .header-left h1 {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2563eb;
+            margin-bottom: 5px;
+        }
+        
+        .header-right {
+            text-align: right;
+        }
+        
+        .invoice-number {
+            font-size: 18px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        
+        .invoice-dates {
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .invoice-dates div {
+            margin-bottom: 4px;
+        }
+        
+        /* Company & Client Details */
+        .details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+        }
+        
+        .details-section {
+            width: 48%;
+        }
+        
+        .details-section h3 {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        
+        .company-name,
+        .client-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        
+        .address,
+        .contact-info {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.8;
+        }
+        
+        /* Line Items Table */
+        .line-items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        
+        .line-items thead {
+            background: #f1f5f9;
+        }
+        
+        .line-items th {
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .line-items th:last-child,
+        .line-items td:last-child {
+            text-align: right;
+        }
+        
+        .line-items th:nth-child(2),
+        .line-items td:nth-child(2),
+        .line-items th:nth-child(3),
+        .line-items td:nth-child(3) {
+            text-align: center;
+        }
+        
+        .line-items tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .line-items tbody tr:last-child {
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .line-items td {
+            padding: 14px 12px;
+            font-size: 14px;
+            color: #1a1a1a;
+        }
+        
+        .description {
+            font-weight: 500;
+        }
+        
+        /* Totals Section */
+        .totals-wrapper {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 40px;
+        }
+        
+        .totals {
+            width: 300px;
+        }
+        
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            font-size: 14px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .totals-row.subtotal {
+            color: #64748b;
+        }
+        
+        .totals-row.tax {
+            color: #64748b;
+        }
+        
+        .totals-row.total {
+            border-top: 2px solid #2563eb;
+            border-bottom: 3px double #2563eb;
+            padding: 14px 0;
+            margin-top: 6px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #2563eb;
+        }
+        
+        .totals-label {
+            font-weight: 600;
+        }
+        
+        .amount-words {
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #f8fafc;
+            border-left: 4px solid #2563eb;
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .amount-words strong {
+            color: #1a1a1a;
+        }
+        
+        /* Notes */
+        .notes {
+            margin-bottom: 30px;
+        }
+        
+        .notes h4 {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        
+        .notes-content {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.8;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+        
+        /* Footer */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .footer-content {
+            margin-bottom: 10px;
+        }
+        
+        /* Print-specific styles */
+        @media print {
+            .invoice-container {
+                padding: 15mm;
+            }
+            
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+        
+        /* Page breaks */
+        .page-break {
+            page-break-after: always;
+        }
+        
+        .line-items tbody tr {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+    {{#if watermark}}
+    <div class="watermark">{{watermark}}</div>
+    {{/if}}
+    
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <h1>INVOICE</h1>
+            </div>
+            <div class="header-right">
+                <div class="invoice-number">#{{invoiceNumber}}</div>
+                <div class="invoice-dates">
+                    <div><strong>Issue Date:</strong> {{formatDate issueDate}}</div>
+                    <div><strong>Due Date:</strong> {{formatDate dueDate}}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Company & Client Details -->
+        <div class="details">
+            <div class="details-section">
+                <h3>From</h3>
+                <div class="company-name">{{companyName}}</div>
+                <div class="address">
+                    {{#if companyAddress}}
+                    {{companyAddress}}<br>
+                    {{/if}}
+                    {{#if companyCity}}
+                    {{companyCity}}, {{companyState}} {{companyZip}}<br>
+                    {{/if}}
+                    {{#if companyEmail}}
+                    {{companyEmail}}<br>
+                    {{/if}}
+                    {{#if companyPhone}}
+                    {{companyPhone}}
+                    {{/if}}
+                </div>
+            </div>
+            
+            <div class="details-section">
+                <h3>Bill To</h3>
+                <div class="client-name">{{clientName}}</div>
+                <div class="address">
+                    {{#if clientAddress}}
+                    {{clientAddress}}<br>
+                    {{/if}}
+                    {{#if clientCity}}
+                    {{clientCity}}, {{clientState}} {{clientZip}}<br>
+                    {{/if}}
+                    {{#if clientEmail}}
+                    {{clientEmail}}<br>
+                    {{/if}}
+                    {{#if clientPhone}}
+                    {{clientPhone}}
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Line Items -->
+        <table class="line-items">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each lineItems}}
+                <tr>
+                    <td class="description">{{this.description}}</td>
+                    <td>{{this.quantity}}</td>
+                    <td>{{formatCurrency this.rate ../currency}}</td>
+                    <td>{{formatCurrency this.amount ../currency}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+        
+        <!-- Totals -->
+        <div class="totals-wrapper">
+            <div class="totals">
+                <div class="totals-row subtotal">
+                    <span class="totals-label">Subtotal:</span>
+                    <span>{{formatCurrency subtotal currency}}</span>
+                </div>
+                {{#if taxAmount}}
+                <div class="totals-row tax">
+                    <span class="totals-label">Tax ({{taxRate}}%):</span>
+                    <span>{{formatCurrency taxAmount currency}}</span>
+                </div>
+                {{/if}}
+                {{#if discountAmount}}
+                <div class="totals-row tax">
+                    <span class="totals-label">Discount:</span>
+                    <span>-{{formatCurrency discountAmount currency}}</span>
+                </div>
+                {{/if}}
+                <div class="totals-row total">
+                    <span class="totals-label">Total Amount:</span>
+                    <span>{{formatCurrency totalAmount currency}}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Amount in Words -->
+        {{#if amountInWords}}
+        <div class="amount-words">
+            <strong>Amount in Words:</strong> {{amountInWords}}
+        </div>
+        {{/if}}
+        
+        <!-- Notes -->
+        {{#if notes}}
+        <div class="notes">
+            <h4>Notes</h4>
+            <div class="notes-content">{{notes}}</div>
+        </div>
+        {{/if}}
+        
+        <!-- Payment Instructions -->
+        {{#if paymentInstructions}}
+        <div class="notes">
+            <h4>Payment Instructions</h4>
+            <div class="notes-content">{{paymentInstructions}}</div>
+        </div>
+        {{/if}}
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-content">
+                Thank you for your business!
+            </div>
+            {{#if companyWebsite}}
+            <div class="footer-content">
+                {{companyWebsite}}
+            </div>
+            {{/if}}
+        </div>
+    </div>
+</body>
+</html>
