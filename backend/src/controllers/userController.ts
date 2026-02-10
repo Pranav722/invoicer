@@ -90,14 +90,11 @@ export class UserController {
                 throw new AppError('User with this email already exists', 409, 'DUPLICATE_ERROR');
             }
 
-            // Hash password
-            const passwordHash = await bcrypt.hash(password, 12);
-
             // Create user
             const user = await User.create({
                 tenantId,
                 email,
-                passwordHash,
+                passwordHash: password, // Will be hashed by pre-save hook
                 profile,
                 role: role || 'employee',
                 permissions: permissions || [],
