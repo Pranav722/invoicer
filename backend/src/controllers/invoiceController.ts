@@ -706,18 +706,29 @@ export class InvoiceController {
             const { templateId = 'classic-professional' } = req.body;
             const tenantId = req.tenantId!;
 
-            // 1. Get invoice
+            // 1. Get invoice with lean() for POJO
             const invoice = await Invoice.findOne({ _id: id, tenantId, deletedAt: null })
-                .populate('vendorId');
+                .populate('vendorId')
+                .lean();
 
             if (!invoice) {
                 throw new AppError('Invoice not found', 404, 'NOT_FOUND');
             }
 
-            const tenant = await Tenant.findById(tenantId);
+            const tenant = await Tenant.findById(tenantId).lean();
             if (!tenant) throw new AppError('Tenant not found', 404, 'NOT_FOUND');
 
             const vendor = invoice.vendorId as any;
+
+            // Helper to ensure absolute URLs for local uploads
+            const getAbsoluteUrl = (url?: string) => {
+                if (!url) return '';
+                if (url.startsWith('http')) return url;
+                const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`;
+                // Remove leading slash if present to avoid double slashes
+                const cleanPath = url.startsWith('/') ? url.slice(1) : url;
+                return `${baseUrl}/${cleanPath}`;
+            };
 
             // Prepare invoice data
             const invoiceData = {
@@ -729,15 +740,17 @@ export class InvoiceController {
                 companyEmail: (invoice.vendorSnapshot as any)?.email || tenant?.ownerEmail,
                 companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant?.branding?.phone,
                 companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant?.branding?.website,
+                // Ensure logo is absolute URL
+                logo: getAbsoluteUrl(tenant?.branding?.logo),
 
                 // Client details - prioritize clientSnapshot if available
-                clientName: invoice.clientSnapshot?.name || invoice.clientSnapshot?.company || '',
+                clientName: invoice.clientSnapshot?.name || (invoice.clientSnapshot as any)?.company || '',
                 clientAddress: invoice.clientSnapshot?.address || '',
                 clientEmail: invoice.clientSnapshot?.email || '',
                 clientTaxId: invoice.clientSnapshot?.taxId || '',
 
                 // Signature & Payment Info (Restored after total)
-                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant?.branding?.signatureUrl,
+                signature: getAbsoluteUrl((invoice.vendorSnapshot as any)?.signatureUrl || tenant?.branding?.signatureUrl),
                 paymentInfo: {
                     bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant?.paymentDetails?.bankName,
                     accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant?.paymentDetails?.accountName,

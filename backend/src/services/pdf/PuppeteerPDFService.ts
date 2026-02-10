@@ -185,8 +185,8 @@ export class PuppeteerPDFService {
 
             // Load HTML into page
             await page.setContent(html, {
-                waitUntil: 'networkidle0', // Wait for fonts and images
-                timeout: 30000,
+                waitUntil: ['domcontentloaded', 'networkidle0'], // Wait for DOM, then network idle
+                timeout: 60000, // Increase to 60s
             });
 
             // PDF generation options
