@@ -29,12 +29,13 @@ class BrowserPool {
         this.isInitializing = true;
         try {
             this.browser = await puppeteer.launch({
-                headless: true,
+                headless: true, // Use new headless mode via args or update if types allow
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
+                    '--headless=new' // Force new headless mode
                 ],
                 executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, // For Docker
             });
@@ -185,8 +186,8 @@ export class PuppeteerPDFService {
 
             // Load HTML into page
             await page.setContent(html, {
-                waitUntil: ['domcontentloaded', 'networkidle0'], // Wait for DOM, then network idle
-                timeout: 60000, // Increase to 60s
+                waitUntil: 'domcontentloaded', // Wait for DOM only, faster and less brittle
+                timeout: 60000,
             });
 
             // PDF generation options

@@ -720,14 +720,51 @@ export class InvoiceController {
 
             const vendor = invoice.vendorId as any;
 
-            // Helper to ensure absolute URLs for local uploads
-            const getAbsoluteUrl = (url?: string) => {
+            // Helper to convert images to Base64 to avoid network timeouts/404s
+            const getImageDataURI = (url?: string) => {
                 if (!url) return '';
-                if (url.startsWith('http')) return url;
-                const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`;
-                // Remove leading slash if present to avoid double slashes
-                const cleanPath = url.startsWith('/') ? url.slice(1) : url;
-                return `${baseUrl}/${cleanPath}`;
+
+                // If already data URI, return as is
+                if (url.startsWith('data:')) return url;
+
+                try {
+                    let filePath = '';
+
+                    // Handle local uploads (whether full URL or relative path)
+                    if (url.includes('/uploads/')) {
+                        // Extract filename from URL (e.g. http://localhost/uploads/file.png or /uploads/file.png)
+                        const matches = url.match(/\/uploads\/([^?#]+)/);
+                        if (matches && matches[1]) {
+                            // Construct absolute file path on disk
+                            filePath = path.join(process.cwd(), 'uploads', matches[1]);
+                        }
+                    }
+
+                    // If we resolved a file path
+                    if (filePath) {
+                        if (fs.existsSync(filePath)) {
+                            const bitmap = fs.readFileSync(filePath);
+                            const ext = path.extname(filePath).toLowerCase().substring(1); // png, jpg
+                            const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
+                            return `data:${mimeType};base64,${bitmap.toString('base64')}`;
+                        } else {
+                            // File not found on disk (ephemeral storage?) -> Return empty to avoid 404 timeout
+                            console.warn(`[PDF] Image file not found on disk: ${filePath}`);
+                            return '';
+                        }
+                    }
+
+                    // For external URLs (non-local), keep as is
+                    if (url.startsWith('http') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+                        return url;
+                    }
+
+                    // Fallback for unresolvable local URLs -> empty
+                    return '';
+                } catch (error) {
+                    console.error('Error processing image for PDF:', error);
+                    return '';
+                }
             };
 
             // Prepare invoice data
@@ -740,8 +777,8 @@ export class InvoiceController {
                 companyEmail: (invoice.vendorSnapshot as any)?.email || tenant?.ownerEmail,
                 companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant?.branding?.phone,
                 companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant?.branding?.website,
-                // Ensure logo is absolute URL
-                logo: getAbsoluteUrl(tenant?.branding?.logo),
+                // Embed images as Base64
+                logo: getImageDataURI(tenant?.branding?.logo),
 
                 // Client details - prioritize clientSnapshot if available
                 clientName: invoice.clientSnapshot?.name || (invoice.clientSnapshot as any)?.company || '',
@@ -750,7 +787,7 @@ export class InvoiceController {
                 clientTaxId: invoice.clientSnapshot?.taxId || '',
 
                 // Signature & Payment Info (Restored after total)
-                signature: getAbsoluteUrl((invoice.vendorSnapshot as any)?.signatureUrl || tenant?.branding?.signatureUrl),
+                signature: getImageDataURI((invoice.vendorSnapshot as any)?.signatureUrl || tenant?.branding?.signatureUrl),
                 paymentInfo: {
                     bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant?.paymentDetails?.bankName,
                     accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant?.paymentDetails?.accountName,
