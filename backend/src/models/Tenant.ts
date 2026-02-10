@@ -54,6 +54,7 @@ export interface ITenant extends Document {
         timezone: string;
         dateFormat: string;
         maxDueDateDays: number | null;
+        autoEmailInvoices: boolean; // NEW
     };
 
     createdAt: Date;
@@ -115,7 +116,8 @@ const TenantSchema: Schema = new Schema(
             defaultPaymentTerms: { type: String, default: 'Net 30' },
             timezone: { type: String, default: 'UTC' },
             dateFormat: { type: String, default: 'DD/MM/YYYY' },
-            maxDueDateDays: { type: Number, default: null } // Limit due date selection (e.g. 30 days)
+            maxDueDateDays: { type: Number, default: null }, // Limit due date selection (e.g. 30 days)
+            autoEmailInvoices: { type: Boolean, default: false } // NEW: Auto-email toggle
         },
 
         deletedAt: Date

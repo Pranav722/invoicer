@@ -129,6 +129,39 @@ export class InvoiceController {
 
             logger.info(`Invoice created: ${invoice.invoiceNumber} by user ${userId}`);
 
+            // NEW: Auto-send email if enabled in settings
+            try {
+                const tenant = await Tenant.findById(tenantId);
+                if (tenant && tenant.settings?.autoEmailInvoices) {
+                    // Check if client email exists
+                    const clientEmail = invoice.clientSnapshot?.email;
+                    if (clientEmail) {
+                        const { emailService } = await import('../services/email/ResendEmailService');
+
+                        // Construct public invoice URL (assuming frontend URL structure)
+                        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                        const invoiceUrl = `${frontendUrl}/invoices/${invoice._id}/preview`;
+
+                        await emailService.sendInvoiceEmail({
+                            invoiceNumber: invoice.invoiceNumber,
+                            clientName: invoice.clientSnapshot?.name || invoice.clientSnapshot?.company || 'Valued Client',
+                            clientEmail,
+                            companyName: tenant.companyName,
+                            amount: invoice.total,
+                            dueDate: invoice.dueDate.toISOString(),
+                            invoiceUrl
+                        });
+
+                        logger.info(`Auto-email queued for invoice ${invoice.invoiceNumber} to ${clientEmail}`);
+                    } else {
+                        logger.warn(`Auto-email skipped for invoice ${invoice.invoiceNumber}: No client email`);
+                    }
+                }
+            } catch (emailError) {
+                // Don't block response if email fails
+                logger.error(`Failed to auto-send email for invoice ${invoice.invoiceNumber}`, emailError);
+            }
+
             res.status(201).json({
                 success: true,
                 data: invoice
