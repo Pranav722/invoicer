@@ -349,27 +349,27 @@ export class InvoiceController {
                 } : {}),
 
                 // Company (Tenant) details - can be overridden by vendorSnapshot (Issuer Profile)
-                companyName: (invoice.vendorSnapshot as any)?.companyName || tenant.companyName,
-                companyAddress: (invoice.vendorSnapshot as any)?.address || tenant.branding?.companyAddress,
-                companyEmail: (invoice.vendorSnapshot as any)?.email || tenant.ownerEmail,
-                companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant.branding?.phone,
-                companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant.branding?.website,
+                companyName: (invoice.vendorSnapshot as any)?.companyName || tenant?.companyName,
+                companyAddress: (invoice.vendorSnapshot as any)?.address || tenant?.branding?.companyAddress,
+                companyEmail: (invoice.vendorSnapshot as any)?.email || tenant?.ownerEmail,
+                companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant?.branding?.phone,
+                companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant?.branding?.website,
                 // Signature & Payment Info (Restored after total)
-                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant.branding?.signatureUrl,
+                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant?.branding?.signatureUrl,
                 paymentInfo: {
-                    bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant.paymentDetails?.bankName,
-                    accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant.paymentDetails?.accountName,
-                    accountNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.accountNumber || tenant.paymentDetails?.accountNumber,
-                    swiftCode: (invoice.vendorSnapshot as any)?.paymentDetails?.swiftCode || tenant.paymentDetails?.swiftCode,
-                    ifscCode: (invoice.vendorSnapshot as any)?.paymentDetails?.ifscCode || tenant.paymentDetails?.ifscCode,
-                    routingNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.routingNumber || tenant.paymentDetails?.routingNumber,
+                    bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant?.paymentDetails?.bankName,
+                    accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant?.paymentDetails?.accountName,
+                    accountNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.accountNumber || tenant?.paymentDetails?.accountNumber,
+                    swiftCode: (invoice.vendorSnapshot as any)?.paymentDetails?.swiftCode || tenant?.paymentDetails?.swiftCode,
+                    ifscCode: (invoice.vendorSnapshot as any)?.paymentDetails?.ifscCode || tenant?.paymentDetails?.ifscCode,
+                    routingNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.routingNumber || tenant?.paymentDetails?.routingNumber,
                 },
 
                 // Footer Branding (Absolute Bottom)
                 footer: (invoice.vendorSnapshot as any)?.footer || {
-                    contact: tenant.branding?.phone,
-                    email: tenant.ownerEmail,
-                    address: tenant.branding?.companyAddress
+                    contact: tenant?.branding?.phone,
+                    email: tenant?.ownerEmail,
+                    address: tenant?.branding?.companyAddress
                 },
 
                 // Line items
@@ -480,27 +480,27 @@ export class InvoiceController {
                 } : {}),
 
                 // Company (Tenant) details - can be overridden by vendorSnapshot (Issuer Profile)
-                companyName: (invoice.vendorSnapshot as any)?.companyName || tenant.companyName,
-                companyAddress: (invoice.vendorSnapshot as any)?.address || tenant.branding?.companyAddress,
-                companyEmail: (invoice.vendorSnapshot as any)?.email || tenant.ownerEmail,
-                companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant.branding?.phone,
-                companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant.branding?.website,
+                companyName: (invoice.vendorSnapshot as any)?.companyName || tenant?.companyName,
+                companyAddress: (invoice.vendorSnapshot as any)?.address || tenant?.branding?.companyAddress,
+                companyEmail: (invoice.vendorSnapshot as any)?.email || tenant?.ownerEmail,
+                companyPhone: (invoice.vendorSnapshot as any)?.phone || tenant?.branding?.phone,
+                companyWebsite: (invoice.vendorSnapshot as any)?.website || tenant?.branding?.website,
                 // Signature & Payment Info (Restored after total)
-                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant.branding?.signatureUrl,
+                signature: (invoice.vendorSnapshot as any)?.signatureUrl || tenant?.branding?.signatureUrl,
                 paymentInfo: {
-                    bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant.paymentDetails?.bankName,
-                    accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant.paymentDetails?.accountName,
-                    accountNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.accountNumber || tenant.paymentDetails?.accountNumber,
-                    swiftCode: (invoice.vendorSnapshot as any)?.paymentDetails?.swiftCode || tenant.paymentDetails?.swiftCode,
-                    ifscCode: (invoice.vendorSnapshot as any)?.paymentDetails?.ifscCode || tenant.paymentDetails?.ifscCode,
-                    routingNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.routingNumber || tenant.paymentDetails?.routingNumber,
+                    bankName: (invoice.vendorSnapshot as any)?.paymentDetails?.bankName || tenant?.paymentDetails?.bankName,
+                    accountName: (invoice.vendorSnapshot as any)?.paymentDetails?.accountName || tenant?.paymentDetails?.accountName,
+                    accountNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.accountNumber || tenant?.paymentDetails?.accountNumber,
+                    swiftCode: (invoice.vendorSnapshot as any)?.paymentDetails?.swiftCode || tenant?.paymentDetails?.swiftCode,
+                    ifscCode: (invoice.vendorSnapshot as any)?.paymentDetails?.ifscCode || tenant?.paymentDetails?.ifscCode,
+                    routingNumber: (invoice.vendorSnapshot as any)?.paymentDetails?.routingNumber || tenant?.paymentDetails?.routingNumber,
                 },
 
                 // Footer Branding (Absolute Bottom)
                 footer: (invoice.vendorSnapshot as any)?.footer || {
-                    contact: tenant.branding?.phone,
-                    email: tenant.ownerEmail,
-                    address: tenant.branding?.companyAddress
+                    contact: tenant?.branding?.phone,
+                    email: tenant?.ownerEmail,
+                    address: tenant?.branding?.companyAddress
                 },
 
                 lineItems: invoice.items,
