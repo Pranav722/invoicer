@@ -22,26 +22,10 @@ app.use(helmet({
     contentSecurityPolicy: false,
 })); // Security headers with relaxed CSP for cross-origin images
 app.use(cors({
-    origin: function (origin, callback) {
-        const allowedOrigins = [
-            'http://localhost:5173',
-            'http://localhost:3000',
-            process.env.FRONTEND_URL,
-            process.env.CLIENT_URL,
-            'https://invoicerrrr.netlify.app'
-        ].filter(Boolean); // Remove undefined/null
-
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.netlify.app')) {
-            callback(null, true);
-        } else {
-            console.log('Blocked by CORS:', origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true
+    origin: true, // Reflects the request origin
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -50,6 +34,10 @@ app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) }
 // ================================
 // HEALTH CHECK
 // ================================
+app.get('/', (req, res) => {
+    res.status(200).send('Invoice API is Running');
+});
+
 app.get('/health', (req, res) => {
     res.status(200).json({
         success: true,
