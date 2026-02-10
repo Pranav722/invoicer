@@ -127,6 +127,15 @@ const startServer = async () => {
             logger.info(`✓ Server running on port ${PORT}`);
             logger.info(`✓ Environment: ${process.env.NODE_ENV}`);
             logger.info(`✓ Health check: http://localhost:${PORT}/health`);
+
+            // DEBUG: Log all registered routes
+            app._router.stack.forEach((r: any) => {
+                if (r.route && r.route.path) {
+                    logger.info(`Route: ${r.route.path}`);
+                } else if (r.name === 'router') {
+                    logger.info(`Router Name: ${r.name} (Regex: ${r.regexp})`);
+                }
+            });
         });
     } catch (error) {
         logger.error('Failed to start server:', error);
