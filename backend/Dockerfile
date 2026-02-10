@@ -23,7 +23,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Install dependencies (including puppeteer, but skipping chromium download)
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
