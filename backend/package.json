@@ -63,7 +63,6 @@
     "@typescript-eslint/parser": "^6.17.0",
     "eslint": "^8.56.0",
     "nodemon": "^3.0.2",
-    "puppeteer": "^21.6.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
