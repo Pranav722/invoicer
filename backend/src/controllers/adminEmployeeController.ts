@@ -71,14 +71,11 @@ export class AdminEmployeeController {
                 }
             }
 
-            // Hash password
-            const passwordHash = await bcrypt.hash(password, 12);
-
             // Create employee
             const employee = await User.create({
                 tenantId,
                 email: email.toLowerCase(),
-                passwordHash,
+                passwordHash: password, // Will be hashed by pre-save hook
                 profile: {
                     firstName: profile.firstName,
                     lastName: profile.lastName,
